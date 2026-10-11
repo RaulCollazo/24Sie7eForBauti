@@ -1,0 +1,35 @@
+#Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Node & Frontend
+node_modules/
+.npm/
+dist/
+dist-ssr/
+*.local
+
+# Desktop / Tauri builds
+src-tauri/target/
+
+#IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+thumbs.db
