@@ -28,7 +28,6 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 DisableDirPage=no
 AllowNoIcons=yes
-DefaultLanguage=spanish
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
