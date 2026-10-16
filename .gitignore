@@ -19,7 +19,8 @@ venv/
 dist/
 build/
 *.spec
-dist_installer/
+dist_installer/*
+!dist_installer/24Sie7eSetup.exe
 
 # Node & Frontend
 node_modules/
