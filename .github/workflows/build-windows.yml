@@ -1,0 +1,68 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Python dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-build.txt
+
+      - name: Package app (PyInstaller onedir)
+        working-directory: backend
+        run: |
+          pyinstaller --noconfirm --clean --onedir --name 24sie7e --icon "${{ github.workspace }}\installer\24sie7e.ico" --add-data "${{ github.workspace }}\frontend\dist;frontend/dist" --collect-submodules uvicorn run.py
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compile installer
+        working-directory: installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "24sie7e.iss"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 24Sie7eSetup
+          path: dist_installer/24Sie7eSetup.exe
+          if-no-files-found: error
+
+      - name: Attach installer to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist_installer/24Sie7eSetup.exe

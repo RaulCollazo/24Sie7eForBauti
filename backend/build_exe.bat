@@ -1,5 +1,5 @@
 @echo off
-REM Builds a single-file executable for 24Sie7e (Windows).
+REM Builds the onedir app bundle for 24Sie7e (Windows).
 REM Usage: build_exe.bat
 
 set "HERE=%~dp0"
@@ -19,16 +19,16 @@ if exist ".venv\Scripts\pip.exe" (
   set "PIP=pip"
   set "PYI=pyinstaller"
 )
-"%PIP%" install -r requirements-build.txt
+"%PIP%" install -r requirements.txt -r requirements-build.txt
 
-echo ==^> Packaging executable...
+echo ==^> Packaging application (onedir)...
 "%PYI%" --noconfirm --clean ^
-  --onefile ^
+  --onedir ^
   --name 24sie7e ^
+  --icon "%ROOT%\installer\24sie7e.ico" ^
   --add-data "%ROOT%\frontend\dist;frontend/dist" ^
   --collect-submodules uvicorn ^
   run.py
 
 echo.
-echo Listo. Ejecutable en: %HERE%dist\24sie7e.exe
-pause
+echo Listo. Carpeta en: %HERE%dist\24sie7e\
