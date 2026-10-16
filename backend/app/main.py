@@ -1,5 +1,11 @@
+import os
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -28,3 +34,36 @@ def on_startup() -> None:
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _frontend_dist() -> Path | None:
+    """Locate the built frontend (works both in dev and PyInstaller bundles)."""
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        candidate = base / "frontend" / "dist"
+    else:
+        candidate = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    return candidate if candidate.is_dir() else None
+
+
+def mount_frontend() -> None:
+    dist = _frontend_dist()
+    if dist is None:
+        return
+
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+
+    index_file = dist / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str) -> FileResponse:
+        requested = dist / full_path
+        if full_path and requested.is_file():
+            return FileResponse(requested)
+        return FileResponse(index_file)
+
+
+if os.getenv("SERVE_FRONTEND", "1") == "1":
+    mount_frontend()
