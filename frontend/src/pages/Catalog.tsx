@@ -46,7 +46,7 @@ export default function Catalog() {
             <select
               value={cat}
               onChange={(e) => setCat(e.target.value === '' ? '' : Number(e.target.value))}
-              className="h-9 rounded-md border border-border bg-white px-2 text-sm"
+              className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
             >
               <option value="">Todas</option>
               {categories.map((c) => (

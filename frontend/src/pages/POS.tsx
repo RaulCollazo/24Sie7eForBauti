@@ -197,7 +197,7 @@ export default function POS() {
 
               <div className="mt-4 flex gap-2">
                 <Input placeholder="Nombre o DNI (Opcional)" value={customer} onChange={(e) => setCustomer(e.target.value)} />
-                <select value={payment} onChange={(e) => setPayment(e.target.value)} className="h-9 rounded-md border border-border bg-white px-2 text-sm">
+                <select value={payment} onChange={(e) => setPayment(e.target.value)} className="h-9 rounded-md border border-border bg-surface px-2 text-sm">
                   <option value="Efectivo">Efectivo</option>
                   <option value="Tarjeta">Tarjeta</option>
                   <option value="Trans.">Trans.</option>

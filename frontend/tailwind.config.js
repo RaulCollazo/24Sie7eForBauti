@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -18,16 +19,17 @@ export default {
           900: '#5C1C06',
         },
         bg: {
-          primary: '#FFFFFF',
-          secondary: '#F9F9F9',
-          tertiary: '#F3F3F3',
+          primary: 'rgb(var(--bg-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--bg-secondary) / <alpha-value>)',
+          tertiary: 'rgb(var(--bg-tertiary) / <alpha-value>)',
         },
+        surface: 'rgb(var(--surface) / <alpha-value>)',
         text: {
-          primary: '#1B1B1B',
-          muted: '#5E5E5C',
+          primary: 'rgb(var(--text-primary) / <alpha-value>)',
+          muted: 'rgb(var(--text-muted) / <alpha-value>)',
         },
-        border: '#E2E2E2',
-        danger: '#BA1A1A',
+        border: 'rgb(var(--border) / <alpha-value>)',
+        danger: 'rgb(var(--danger) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Work Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],

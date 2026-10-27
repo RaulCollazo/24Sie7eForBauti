@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Box, Layers, History, ShoppingCart, LogOut } from 'lucide-react'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 const navItems = [
   { to: '/catalogo', label: 'Catálogo', icon: Box },
@@ -15,7 +16,7 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-border bg-bg-secondary">
       <div className="flex items-center gap-2 px-4 py-5">
-        <img src="/assets/logo.svg" alt="24Sie7e" className="h-8 w-8" />
+        <img src="/assets/logo.svg" alt="24Sie7e" className="h-8 w-8 dark:rounded-md dark:bg-white dark:p-0.5" />
         <div>
           <p className="font-heading text-sm font-bold">Open 24Sie7e</p>
           <p className="text-xs text-text-muted">Heladería y maxikiosco</p>
@@ -43,6 +44,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="border-t border-border p-3">
+        <ThemeToggle showLabel className="w-full" />
         <button
           onClick={() => {
             localStorage.removeItem('token')

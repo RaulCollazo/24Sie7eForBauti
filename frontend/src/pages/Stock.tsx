@@ -18,9 +18,22 @@ export default function Stock() {
   const [imageUrl, setImageUrl] = useState('')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageError, setImageError] = useState('')
+  const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [nameSuggestions, setNameSuggestions] = useState<Product[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [editing, setEditing] = useState<Product | null>(null)
+  const [editPrice, setEditPrice] = useState('')
+  const [editStock, setEditStock] = useState('')
+  const [editImageFile, setEditImageFile] = useState<File | null>(null)
+  const [editImageUrl, setEditImageUrl] = useState('')
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null)
+  const [editImageError, setEditImageError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [deleting, setDeleting] = useState<Product | null>(null)
+  const [deleteSaving, setDeleteSaving] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const load = async () => {
     const [prods, cats] = await Promise.all([
@@ -74,6 +87,7 @@ export default function Stock() {
     setImageFile(null)
     setImageUrl('')
     setImageError('')
+    setFormError('')
     setNameSuggestions([])
     setShowSuggestions(false)
   }
@@ -102,8 +116,15 @@ export default function Stock() {
   }
 
   const onSave = async () => {
+    const price = Number(form.price)
+    const stock = Number(form.stock)
+    if (!Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      setFormError('El precio y las existencias deben ser mayores o iguales a 0')
+      return
+    }
     setSaving(true)
     setImageError('')
+    setFormError('')
     try {
       let image = form.image || null
       if (imageFile) {
@@ -115,8 +136,8 @@ export default function Stock() {
       }
       await api.products.create({
         name: form.name,
-        price: Number(form.price),
-        stock: Number(form.stock),
+        price,
+        stock,
         category_id: form.category_id ? Number(form.category_id) : null,
         sku: form.sku || null,
         image,
@@ -125,9 +146,115 @@ export default function Stock() {
       resetForm()
       load()
     } catch (err) {
-      setImageError(err instanceof Error ? err.message : 'No se pudo procesar la imagen')
+      setFormError(err instanceof Error ? err.message : 'No se pudo guardar el producto')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const resetEditImage = () => {
+    if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview)
+    setEditImageFile(null)
+    setEditImageUrl('')
+    setEditImagePreview(null)
+    setEditImageError('')
+  }
+
+  const openEdit = (product: Product) => {
+    resetEditImage()
+    setEditing(product)
+    setEditPrice(String(product.price))
+    setEditStock(String(product.stock))
+    setEditImageUrl(product.image || '')
+    setEditImagePreview(product.image)
+    setEditError('')
+  }
+
+  const closeEdit = () => {
+    if (editSaving) return
+    resetEditImage()
+    setEditing(null)
+    setEditError('')
+  }
+
+  const onEditPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview)
+    setEditImageFile(file)
+    setEditImageUrl('')
+    setEditImageError('')
+    setEditImagePreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  const onEditUrlChange = (value: string) => {
+    if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview)
+    setEditImageFile(null)
+    setEditImageUrl(value)
+    setEditImageError('')
+    setEditImagePreview(value.trim() || null)
+  }
+
+  const onEditSave = async () => {
+    if (!editing) return
+    const price = Number(editPrice)
+    const stock = Number(editStock)
+    if (!Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
+      setEditError('Ingresá un precio válido y existencias enteras mayores o iguales a 0')
+      return
+    }
+    setEditSaving(true)
+    setEditError('')
+    setEditImageError('')
+    try {
+      let image: string | null = null
+      if (editImageFile) {
+        const uploaded = await api.products.uploadImage(editImageFile)
+        image = uploaded.image
+      } else {
+        const url = editImageUrl.trim()
+        if (url) {
+          if (editing.image && url === editing.image) {
+            image = editing.image
+          } else {
+            const downloaded = await api.products.imageFromUrl(url)
+            image = downloaded.image
+          }
+        }
+      }
+      await api.products.update(editing.id, { price, stock, image })
+      resetEditImage()
+      setEditing(null)
+      load()
+    } catch (err) {
+      setEditImageError(err instanceof Error ? err.message : 'No se pudo actualizar el producto')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const openDelete = (product: Product) => {
+    setDeleting(product)
+    setDeleteError('')
+  }
+
+  const closeDelete = () => {
+    if (deleteSaving) return
+    setDeleting(null)
+    setDeleteError('')
+  }
+
+  const onDelete = async () => {
+    if (!deleting) return
+    setDeleteSaving(true)
+    setDeleteError('')
+    try {
+      await api.products.remove(deleting.id)
+      setDeleting(null)
+      load()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'No se pudo eliminar el producto')
+    } finally {
+      setDeleteSaving(false)
     }
   }
 
@@ -147,7 +274,7 @@ export default function Stock() {
               <select
                 value={cat}
                 onChange={(e) => setCat(e.target.value === '' ? '' : Number(e.target.value))}
-                className="h-9 rounded-md border border-border bg-white px-2 text-sm"
+                className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
               >
                 <option value="">Todas</option>
                 {categories.map((c) => (
@@ -176,6 +303,7 @@ export default function Stock() {
               <TableHead>Categoría</TableHead>
               <TableHead>Existencias</TableHead>
               <TableHead>Precio</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -187,6 +315,16 @@ export default function Stock() {
                 <TableCell>{p.category?.name || '-'}</TableCell>
                 <TableCell>{p.stock}</TableCell>
                 <TableCell>{fmt(p.price)}</TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => openEdit(p)}>
+                      Editar
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={() => openDelete(p)}>
+                      Eliminar
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -207,7 +345,7 @@ export default function Stock() {
               onBlur={() => setShowSuggestions(false)}
             />
             {showSuggestions && nameSuggestions.length > 0 && (
-              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-white shadow-lg">
+              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-surface shadow-lg">
                 <p className="border-b border-border px-3 py-2 text-xs font-semibold text-text-muted">
                   Productos con nombre similar
                 </p>
@@ -227,7 +365,7 @@ export default function Stock() {
           <select
             value={form.category_id || ''}
             onChange={(e) => setForm({ ...form, category_id: e.target.value ? Number(e.target.value) : undefined })}
-            className="h-9 rounded-md border border-border bg-white px-2 text-sm col-span-2"
+            className="h-9 rounded-md border border-border bg-surface px-2 text-sm col-span-2"
           >
             <option value="">Categoría</option>
             {categories.map((c) => (
@@ -236,8 +374,22 @@ export default function Stock() {
               </option>
             ))}
           </select>
-          <Input placeholder="Valor" type="number" value={form.price || ''} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
-          <Input placeholder="Cantidad de stock" type="number" value={form.stock || ''} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
+          <Input
+            placeholder="Valor"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.price || ''}
+            onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+          />
+          <Input
+            placeholder="Cantidad de stock"
+            type="number"
+            min="0"
+            step="1"
+            value={form.stock || ''}
+            onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+          />
           <div className="col-span-2 space-y-2">
             <label className="block text-sm font-medium">Imagen del producto</label>
             <Input
@@ -257,12 +409,87 @@ export default function Stock() {
             {imageError && <p className="text-xs text-danger">{imageError}</p>}
           </div>
         </div>
+        {formError && <p className="mt-3 text-xs text-danger">{formError}</p>}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
           <Button onClick={onSave} disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar'}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!editing} onClose={closeEdit} title="Editar producto">
+        <p className="mb-4 text-sm text-text-muted">{editing?.name}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Precio</label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={editPrice}
+              onChange={(e) => setEditPrice(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Existencias</label>
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              value={editStock}
+              onChange={(e) => setEditStock(e.target.value)}
+            />
+          </div>
+          <div className="col-span-2 space-y-2">
+            <label className="block text-sm font-medium">Imagen del producto</label>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={onEditPickFile}
+              className="file:mr-3 file:rounded-md file:border-0 file:bg-bg-secondary file:px-3 file:py-1 file:text-sm"
+            />
+            <Input
+              placeholder="O pegá una URL de imagen (dejá vacío para quitar la imagen)"
+              value={editImageUrl}
+              onChange={(e) => onEditUrlChange(e.target.value)}
+            />
+            {editImagePreview && (
+              <div className="flex items-center gap-3">
+                <img src={editImagePreview} alt="Vista previa" className="h-32 w-32 rounded-md border border-border object-cover" />
+                <Button size="sm" variant="secondary" onClick={resetEditImage} disabled={editSaving}>
+                  Quitar imagen
+                </Button>
+              </div>
+            )}
+            {editImageError && <p className="text-xs text-danger">{editImageError}</p>}
+          </div>
+        </div>
+        {editError && <p className="mt-3 text-xs text-danger">{editError}</p>}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" onClick={closeEdit} disabled={editSaving}>
+            Cancelar
+          </Button>
+          <Button onClick={onEditSave} disabled={editSaving}>
+            {editSaving ? 'Guardando...' : 'Guardar cambios'}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleting} onClose={closeDelete} title="Eliminar producto">
+        <p className="text-sm">
+          ¿Querés eliminar <span className="font-semibold">{deleting?.name}</span> del stock? Esta acción no se puede
+          deshacer.
+        </p>
+        {deleteError && <p className="mt-3 text-xs text-danger">{deleteError}</p>}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" onClick={closeDelete} disabled={deleteSaving}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={onDelete} disabled={deleteSaving}>
+            {deleteSaving ? 'Eliminando...' : 'Eliminar'}
           </Button>
         </div>
       </Modal>

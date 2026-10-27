@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.category import CategoryRead
 
@@ -14,7 +14,8 @@ class ProductBase(BaseModel):
 
 
 class ProductCreate(ProductBase):
-    pass
+    price: float = Field(default=0, ge=0)
+    stock: int = Field(default=0, ge=0)
 
 
 class ProductUpdate(BaseModel):

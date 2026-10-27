@@ -3,12 +3,36 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-primary: 255 255 255;
+    --bg-secondary: 249 249 249;
+    --bg-tertiary: 243 243 243;
+    --surface: 255 255 255;
+    --text-primary: 27 27 27;
+    --text-muted: 94 94 92;
+    --border: 226 226 226;
+    --danger: 186 26 26;
+    color-scheme: light;
+  }
+
+  .dark {
+    --bg-primary: 15 17 21;
+    --bg-secondary: 22 25 31;
+    --bg-tertiary: 31 35 43;
+    --surface: 26 29 36;
+    --text-primary: 242 243 245;
+    --text-muted: 154 160 170;
+    --border: 45 50 60;
+    --danger: 220 38 38;
+    color-scheme: dark;
+  }
+
   html,
   body,
   #root {
     height: 100%;
   }
   body {
-    @apply bg-bg-primary text-text-primary font-sans;
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
   }
 }

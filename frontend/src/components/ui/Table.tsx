@@ -10,8 +10,8 @@ export function TableBody({ children }: { children: React.ReactNode }) {
 export function TableRow({ children }: { children: React.ReactNode }) {
   return <tr className="border-b border-border">{children}</tr>
 }
-export function TableHead({ children }: { children: React.ReactNode }) {
-  return <th className="h-10 px-3 text-left font-medium text-text-muted">{children}</th>
+export function TableHead({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <th className={`h-10 px-3 text-left font-medium text-text-muted ${className || ''}`}>{children}</th>
 }
 export function TableCell({ children }: { children: React.ReactNode }) {
   return <td className="p-3">{children}</td>
