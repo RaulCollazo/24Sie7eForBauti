@@ -8,8 +8,9 @@ function getAuthHeader() {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = init?.body instanceof FormData
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(getAuthHeader() as Record<string, string>),
     ...(init?.headers as Record<string, string> | undefined),
   }
@@ -19,7 +20,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(text || res.statusText)
+    let message = text || res.statusText
+    try {
+      const parsed = JSON.parse(text)
+      if (typeof parsed?.detail === 'string') message = parsed.detail
+    } catch {}
+    throw new Error(message)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -46,6 +52,16 @@ export const api = {
     create: (data: Partial<Product>) => request<Product>('/products', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: Partial<Product>) => request<Product>(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     remove: (id: number) => request<void>(`/products/${id}`, { method: 'DELETE' }),
+    uploadImage: (file: File) => {
+      const body = new FormData()
+      body.append('file', file)
+      return request<{ image: string }>('/products/images/upload', { method: 'POST', body })
+    },
+    imageFromUrl: (url: string) =>
+      request<{ image: string }>('/products/images/from-url', {
+        method: 'POST',
+        body: JSON.stringify({ url }),
+      }),
   },
   categories: {
     list: () => request<Category[]>('/categories'),

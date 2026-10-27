@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
+import { Modal } from '@/components/ui/Modal'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
 import { api } from '@/lib/api'
 import type { Product } from '@/types'
@@ -18,6 +20,10 @@ export default function POS() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [customer, setCustomer] = useState('')
   const [payment, setPayment] = useState('Efectivo')
+  const [mpAlias, setMpAlias] = useState('jrraul')
+  const [showQr, setShowQr] = useState(false)
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState('')
 
   const load = async () => {
     const prods = await api.products.list({ q: q || undefined })
@@ -59,19 +65,41 @@ export default function POS() {
 
   const fmt = (n: number) => `$ ${Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
 
-  const pay = async () => {
+  const completeSale = async () => {
     if (cart.length === 0) return
-    await api.sales.create({
-      payment_method: payment,
-      customer: customer || null,
-      discount: 0,
-      tax_rate: 0.21,
-      items: cart.map((c) => ({ product_id: c.product.id, quantity: c.quantity })),
-    })
-    setCart([])
-    setCustomer('')
-    load()
+    setPaying(true)
+    setPayError('')
+    try {
+      await api.sales.create({
+        payment_method: payment,
+        customer: customer || null,
+        discount: 0,
+        tax_rate: 0.21,
+        items: cart.map((c) => ({ product_id: c.product.id, quantity: c.quantity })),
+      })
+      setCart([])
+      setCustomer('')
+      setShowQr(false)
+      load()
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'No se pudo registrar el pago')
+    } finally {
+      setPaying(false)
+    }
   }
+
+  const pay = () => {
+    if (cart.length === 0) return
+    if (payment === 'Mercado Pago') {
+      setPayError('')
+      setShowQr(true)
+      return
+    }
+    completeSale()
+  }
+
+  const qrAlias = mpAlias.trim() || 'jrraul'
+  const qrValue = qrAlias
 
   return (
     <AppShell>
@@ -173,13 +201,20 @@ export default function POS() {
                   <option value="Efectivo">Efectivo</option>
                   <option value="Tarjeta">Tarjeta</option>
                   <option value="Trans.">Trans.</option>
+                  <option value="Mercado Pago">Mercado Pago</option>
                 </select>
               </div>
+              {payment === 'Mercado Pago' && (
+                <div className="mt-2">
+                  <Input placeholder="Alias de Mercado Pago" value={mpAlias} onChange={(e) => setMpAlias(e.target.value)} />
+                </div>
+              )}
+              {payError && <p className="mt-2 text-xs text-danger">{payError}</p>}
               <div className="mt-3 flex gap-2">
-                <Button className="flex-1" onClick={pay} disabled={cart.length === 0}>
-                  Pagar
+                <Button className="flex-1" onClick={pay} disabled={cart.length === 0 || paying}>
+                  {paying ? 'Registrando...' : 'Pagar'}
                 </Button>
-                <Button variant="secondary" onClick={() => setCart([])}>
+                <Button variant="secondary" onClick={() => setCart([])} disabled={paying}>
                   Cancelar
                 </Button>
               </div>
@@ -187,6 +222,32 @@ export default function POS() {
           </Card>
         </div>
       </div>
+
+      <Modal open={showQr} onClose={() => setShowQr(false)} title="Pago con Mercado Pago">
+        <div className="flex flex-col items-center gap-4">
+          <div className="rounded-lg border border-border bg-white p-3">
+            <QRCodeSVG value={qrValue} size={220} level="M" marginSize={2} />
+          </div>
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-wide text-text-muted">Alias</p>
+            <p className="font-mono text-lg font-bold">{qrAlias}</p>
+            <p className="mt-2 text-xs uppercase tracking-wide text-text-muted">Monto a transferir</p>
+            <p className="font-display text-xl font-bold">{fmt(total)}</p>
+          </div>
+          <p className="max-w-sm text-center text-xs text-text-muted">
+            Escaneá el QR desde Mercado Pago y transferí al alias indicado. Después confirmá el pago para registrar la venta.
+          </p>
+          {payError && <p className="text-xs text-danger">{payError}</p>}
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowQr(false)} disabled={paying}>
+              Cancelar
+            </Button>
+            <Button onClick={completeSale} disabled={paying}>
+              {paying ? 'Registrando...' : 'Confirmar pago'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AppShell>
   )
 }

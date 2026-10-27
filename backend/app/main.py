@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.core.paths import user_assets_dir
 from app.seed import seed_data
 
 app = FastAPI(title=settings.app_name)
@@ -46,6 +47,12 @@ def _frontend_dist() -> Path | None:
     return candidate if candidate.is_dir() else None
 
 
+def mount_user_assets() -> None:
+    directory = user_assets_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    app.mount("/assets/user", StaticFiles(directory=directory), name="user-assets")
+
+
 def mount_frontend() -> None:
     dist = _frontend_dist()
     if dist is None:
@@ -64,6 +71,8 @@ def mount_frontend() -> None:
             return FileResponse(requested)
         return FileResponse(index_file)
 
+
+mount_user_assets()
 
 if os.getenv("SERVE_FRONTEND", "1") == "1":
     mount_frontend()

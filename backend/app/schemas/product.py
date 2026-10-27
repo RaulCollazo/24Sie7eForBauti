@@ -32,3 +32,11 @@ class ProductRead(ProductBase):
 
     id: int
     category: CategoryRead | None = None
+
+
+class ProductImageFromUrl(BaseModel):
+    url: str
+
+
+class ProductImageRead(BaseModel):
+    image: str

@@ -19,8 +19,6 @@ venv/
 dist/
 build/
 *.spec
-dist_installer/*
-!dist_installer/24Sie7eSetup.exe
 
 # Node & Frontend
 node_modules/
@@ -31,6 +29,10 @@ dist-ssr/
 *.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+
+# User-uploaded assets
+frontend/public/assets/user/*
+!frontend/public/assets/user/.gitkeep
 
 # Desktop / Tauri builds
 src-tauri/target/

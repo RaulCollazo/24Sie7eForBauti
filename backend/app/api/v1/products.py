@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.images import MAX_IMAGE_BYTES, ImageError, download_image, save_image
 from app.models import Category, Product
-from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
+from app.schemas.product import (
+    ProductCreate,
+    ProductImageFromUrl,
+    ProductImageRead,
+    ProductRead,
+    ProductUpdate,
+)
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -26,6 +33,25 @@ def list_products(
     if favorites is True:
         stmt = stmt.where(Product.is_favorite.is_(True))
     return list(db.scalars(stmt.offset(skip).limit(limit)))
+
+
+@router.post("/images/upload", response_model=ProductImageRead, status_code=201)
+def upload_product_image(file: UploadFile = File(...)) -> ProductImageRead:
+    data = file.file.read(MAX_IMAGE_BYTES + 1)
+    try:
+        image = save_image(data, file.content_type)
+    except ImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ProductImageRead(image=image)
+
+
+@router.post("/images/from-url", response_model=ProductImageRead, status_code=201)
+def download_product_image(payload: ProductImageFromUrl) -> ProductImageRead:
+    try:
+        image = download_image(payload.url)
+    except ImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ProductImageRead(image=image)
 
 
 @router.get("/{product_id}", response_model=ProductRead)
