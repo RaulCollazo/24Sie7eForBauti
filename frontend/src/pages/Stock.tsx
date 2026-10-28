@@ -13,7 +13,9 @@ export default function Stock() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<number | ''>('')
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<Partial<Product>>({ name: '', price: 0, stock: 0, category_id: undefined })
+  const [form, setForm] = useState<Partial<Product>>({ name: '', category_id: undefined })
+  const [priceInput, setPriceInput] = useState('')
+  const [stockInput, setStockInput] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageUrl, setImageUrl] = useState('')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -83,7 +85,9 @@ export default function Stock() {
 
   const resetForm = () => {
     clearPreview()
-    setForm({ name: '', price: 0, stock: 0 })
+    setForm({ name: '' })
+    setPriceInput('')
+    setStockInput('')
     setImageFile(null)
     setImageUrl('')
     setImageError('')
@@ -116,8 +120,13 @@ export default function Stock() {
   }
 
   const onSave = async () => {
-    const price = Number(form.price)
-    const stock = Number(form.stock)
+    const name = (form.name || '').trim()
+    if (!name) {
+      setFormError('El nombre es obligatorio')
+      return
+    }
+    const price = priceInput.trim() === '' ? 0 : Number(priceInput)
+    const stock = stockInput.trim() === '' ? 0 : Number(stockInput)
     if (!Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0) {
       setFormError('El precio y las existencias deben ser mayores o iguales a 0')
       return
@@ -135,7 +144,7 @@ export default function Stock() {
         image = downloaded.image
       }
       await api.products.create({
-        name: form.name,
+        name,
         price,
         stock,
         category_id: form.category_id ? Number(form.category_id) : null,
@@ -336,9 +345,11 @@ export default function Stock() {
           <div className="relative">
             <Input
               placeholder="Nombre"
+              required
               value={form.name || ''}
               onChange={(e) => {
                 setForm({ ...form, name: e.target.value })
+                setFormError('')
                 setShowSuggestions(true)
               }}
               onFocus={() => setShowSuggestions(true)}
@@ -379,16 +390,16 @@ export default function Stock() {
             type="number"
             min="0"
             step="0.01"
-            value={form.price || ''}
-            onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+            value={priceInput}
+            onChange={(e) => setPriceInput(e.target.value)}
           />
           <Input
             placeholder="Cantidad de stock"
             type="number"
             min="0"
             step="1"
-            value={form.stock || ''}
-            onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+            value={stockInput}
+            onChange={(e) => setStockInput(e.target.value)}
           />
           <div className="col-span-2 space-y-2">
             <label className="block text-sm font-medium">Imagen del producto</label>
