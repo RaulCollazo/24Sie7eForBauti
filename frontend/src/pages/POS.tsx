@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Input } from '@/components/ui/Input'
@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Modal } from '@/components/ui/Modal'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table'
 import { api } from '@/lib/api'
-import type { Product } from '@/types'
+import type { MPPreference, Product } from '@/types'
 
 interface CartItem {
   product: Product
@@ -20,10 +20,13 @@ export default function POS() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [customer, setCustomer] = useState('')
   const [payment, setPayment] = useState('Efectivo')
-  const [mpAlias, setMpAlias] = useState('jrraul')
+  const [mpPreference, setMpPreference] = useState<MPPreference | null>(null)
+  const [mpStatus, setMpStatus] = useState('')
   const [showQr, setShowQr] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payError, setPayError] = useState('')
+  const mpCompletedRef = useRef(false)
 
   const load = async () => {
     const prods = await api.products.list({ q: q || undefined })
@@ -67,6 +70,10 @@ export default function POS() {
 
   const completeSale = async () => {
     if (cart.length === 0) return
+    if (payment === 'Mercado Pago') {
+      if (mpCompletedRef.current) return
+      mpCompletedRef.current = true
+    }
     setPaying(true)
     setPayError('')
     try {
@@ -80,26 +87,108 @@ export default function POS() {
       setCart([])
       setCustomer('')
       setShowQr(false)
+      setMpPreference(null)
+      setMpStatus('')
       load()
     } catch (err) {
+      if (payment === 'Mercado Pago') mpCompletedRef.current = false
       setPayError(err instanceof Error ? err.message : 'No se pudo registrar el pago')
     } finally {
       setPaying(false)
     }
   }
 
-  const pay = () => {
+  const pay = async () => {
     if (cart.length === 0) return
     if (payment === 'Mercado Pago') {
       setPayError('')
-      setShowQr(true)
+      setMpPreference(null)
+      setMpStatus('')
+      mpCompletedRef.current = false
+      setPaying(true)
+      try {
+        const preference = await api.payments.createPreference({
+          amount: total,
+          description: `Venta 24Sie7e${customer ? ` - ${customer}` : ''}`,
+        })
+        setMpPreference(preference)
+        setShowQr(true)
+      } catch (err) {
+        setPayError(err instanceof Error ? err.message : 'No se pudo iniciar el pago')
+      } finally {
+        setPaying(false)
+      }
       return
     }
     completeSale()
   }
 
-  const qrAlias = mpAlias.trim() || 'jrraul'
-  const qrValue = qrAlias
+  const checkPayment = async () => {
+    if (!mpPreference) return
+    setChecking(true)
+    setPayError('')
+    try {
+      const result = await api.payments.status(mpPreference.external_reference)
+      setMpStatus(result.status)
+      if (result.status === 'approved') {
+        await completeSale()
+        return
+      }
+      if (['rejected', 'cancelled', 'refunded', 'charged_back'].includes(result.status)) {
+        setPayError('El pago fue rechazado o cancelado.')
+      } else {
+        setPayError('El pago todavía no está acreditado. Seguimos verificando automáticamente.')
+      }
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'No se pudo verificar el pago')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const closeMp = () => {
+    setShowQr(false)
+    setMpPreference(null)
+    setMpStatus('')
+    setPayError('')
+    mpCompletedRef.current = false
+  }
+
+  useEffect(() => {
+    if (!showQr || !mpPreference) return
+    let cancelled = false
+    let timer: number | undefined
+    const reference = mpPreference.external_reference
+
+    const poll = async () => {
+      try {
+        const result = await api.payments.status(reference)
+        if (cancelled) return
+        setMpStatus(result.status)
+        if (result.status === 'approved') {
+          await completeSale()
+          return
+        }
+        if (['rejected', 'cancelled', 'refunded', 'charged_back'].includes(result.status)) {
+          setPayError('El pago fue rechazado o cancelado.')
+          return
+        }
+        setPayError('')
+        timer = window.setTimeout(poll, 3000)
+      } catch (err) {
+        if (cancelled) return
+        setPayError(err instanceof Error ? err.message : 'No se pudo verificar el pago')
+        timer = window.setTimeout(poll, 5000)
+      }
+    }
+
+    poll()
+
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+    }
+  }, [showQr, mpPreference])
 
   return (
     <AppShell>
@@ -204,15 +293,10 @@ export default function POS() {
                   <option value="Mercado Pago">Mercado Pago</option>
                 </select>
               </div>
-              {payment === 'Mercado Pago' && (
-                <div className="mt-2">
-                  <Input placeholder="Alias de Mercado Pago" value={mpAlias} onChange={(e) => setMpAlias(e.target.value)} />
-                </div>
-              )}
               {payError && <p className="mt-2 text-xs text-danger">{payError}</p>}
               <div className="mt-3 flex gap-2">
                 <Button className="flex-1" onClick={pay} disabled={cart.length === 0 || paying}>
-                  {paying ? 'Registrando...' : 'Pagar'}
+                  {paying ? (payment === 'Mercado Pago' ? 'Iniciando...' : 'Registrando...') : 'Pagar'}
                 </Button>
                 <Button variant="secondary" onClick={() => setCart([])} disabled={paying}>
                   Cancelar
@@ -223,29 +307,52 @@ export default function POS() {
         </div>
       </div>
 
-      <Modal open={showQr} onClose={() => setShowQr(false)} title="Pago con Mercado Pago">
+      <Modal open={showQr} onClose={closeMp} title="Pago con Mercado Pago">
         <div className="flex flex-col items-center gap-4">
-          <div className="rounded-lg border border-border bg-white p-3">
-            <QRCodeSVG value={qrValue} size={220} level="M" marginSize={2} />
-          </div>
-          <div className="text-center">
-            <p className="text-xs uppercase tracking-wide text-text-muted">Alias</p>
-            <p className="font-mono text-lg font-bold">{qrAlias}</p>
-            <p className="mt-2 text-xs uppercase tracking-wide text-text-muted">Monto a transferir</p>
-            <p className="font-display text-xl font-bold">{fmt(total)}</p>
-          </div>
-          <p className="max-w-sm text-center text-xs text-text-muted">
-            Escaneá el QR desde Mercado Pago y transferí al alias indicado. Después confirmá el pago para registrar la venta.
-          </p>
-          {payError && <p className="text-xs text-danger">{payError}</p>}
-          <div className="flex w-full justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowQr(false)} disabled={paying}>
-              Cancelar
-            </Button>
-            <Button onClick={completeSale} disabled={paying}>
-              {paying ? 'Registrando...' : 'Confirmar pago'}
-            </Button>
-          </div>
+          {mpPreference ? (
+            <>
+              <div className="rounded-lg border border-border bg-white p-3">
+                <QRCodeSVG value={mpPreference.init_point} size={220} level="M" marginSize={2} />
+              </div>
+              <div className="text-center">
+                <p className="text-xs uppercase tracking-wide text-text-muted">Monto a pagar</p>
+                <p className="font-display text-xl font-bold">{fmt(total)}</p>
+                <a
+                  href={mpPreference.init_point}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-xs text-brand underline"
+                >
+                  Abrir checkout en el navegador
+                </a>
+              </div>
+              <p className="max-w-sm text-center text-xs text-text-muted">
+                Escaneá el QR o abrí el checkout y pagá con tu cuenta de Mercado Pago. Estamos verificando el pago automáticamente.
+              </p>
+              {!payError && (
+                <p className="flex items-center gap-2 text-xs text-text-muted">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+                  {checking || paying ? 'Verificando pago...' : 'Esperando confirmación de Mercado Pago...'}
+                </p>
+              )}
+              {mpStatus && (
+                <p className="text-xs text-text-muted">
+                  Estado informado: <span className="font-mono">{mpStatus}</span>
+                </p>
+              )}
+              {payError && <p className="text-xs text-danger">{payError}</p>}
+              <div className="flex w-full justify-end gap-2">
+                <Button variant="secondary" onClick={closeMp} disabled={checking || paying}>
+                  Cancelar
+                </Button>
+                <Button onClick={checkPayment} disabled={checking || paying}>
+                  {checking ? 'Verificando...' : paying ? 'Registrando...' : 'Verificar ahora'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-text-muted">Iniciando pago en Mercado Pago...</p>
+          )}
         </div>
       </Modal>
     </AppShell>

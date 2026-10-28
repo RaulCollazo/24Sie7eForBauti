@@ -1,4 +1,4 @@
-import type { AuthToken, Category, Product, Sale, SaleCreate } from '@/types'
+import type { AuthToken, Category, MPPreference, MPStatus, Product, Sale, SaleCreate } from '@/types'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -76,5 +76,14 @@ export const api = {
     },
     get: (id: number) => request<Sale>(`/sales/${id}`),
     create: (data: SaleCreate) => request<Sale>('/sales', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  payments: {
+    createPreference: (data: { amount: number; description?: string }) =>
+      request<MPPreference>('/payments/mp/preference', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    status: (reference: string) =>
+      request<MPStatus>(`/payments/mp/status?reference=${encodeURIComponent(reference)}`),
   },
 }

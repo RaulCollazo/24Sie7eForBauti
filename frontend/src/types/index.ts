@@ -51,3 +51,14 @@ export interface AuthToken {
   token_type: string
   username: string
 }
+
+export interface MPPreference {
+  preference_id: string
+  init_point: string
+  external_reference: string
+}
+
+export interface MPStatus {
+  status: string
+  payment_id: number | null
+}

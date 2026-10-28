@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     access_token_expire_minutes: int = 60 * 8
 
+    # Mercado Pago (POC)
+    mp_access_token: str = ""
+    mp_environment: str = "sandbox"
+    mp_currency: str = "ARS"
+    mp_notification_url: str | None = None
+
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
